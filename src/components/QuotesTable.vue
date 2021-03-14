@@ -15,7 +15,7 @@
             dense
             small-chips
             clearable
-            @change="filterByMovie($event)"
+            @change="filterByMovieName($event)"
           />
         </v-col>
         <v-col sm="4">
@@ -27,7 +27,7 @@
             dense
             small-chips
             clearable
-            @change="filterByCharacter($event)"
+            @change="filterByCharacterName($event)"
           />
         </v-col>
       </v-row>
@@ -47,9 +47,6 @@
             :return-value.sync="props.item.dialog"
             @save="editItem(props.item.dialog)"
           >
-            <!-- @cancel="cancel"
-            @open="open"
-            @close="close" -->
             {{ props.item.dialog }}
             <template v-slot:input>
               <v-text-field
@@ -99,6 +96,10 @@ export default {
       return this.$store.state.selectedCharacter;
     },
 
+    movie() {
+      return this.$store.state.selectedMovie;
+    },
+
     movies() {
       if (!this.$store.state.movies) return;
       const movies = this.$store.state.movies;
@@ -126,20 +127,15 @@ export default {
   watch: {
     page: {
       handler: function(val) {
-        if (this.selectedMovie) {
-          this.filterByMovie(this.selectedMovie, val);
-        } else if (this.character) {
-          this.getQuotesByCharacter(this.character, val);
-        } else {
-          this.getQuotes(val);
-        }
+        this.getQuotes({ character: this.character, movie: this.movie }, val);
       },
     },
+
     character: {
       handler: function(val) {
-        if (!val) return this.getQuotes(1);
+        if (!val) return this.getQuotes({ movie: this.movie }, 1);
 
-        this.getQuotesByCharacter(val);
+        this.getQuotes({ character: val, movie: this.movie }, 1);
 
         const characters = this.$store.state.characters;
 
@@ -151,40 +147,68 @@ export default {
         this.selectedCharacter = findedCharacter.name;
       },
     },
+
+    movie: {
+      handler: function(val) {
+        if (!val) return this.getQuotes({ character: this.character }, 1);
+
+        this.getQuotes({ movie: val, character: this.character }, 1);
+      },
+    },
   },
 
   async created() {
-    await this.getCharacters();
-    await this.getMovies();
-    await this.getQuotes(this.page);
+    await this.getAllCharacters();
+    await this.getAllMovies();
+    await this.getQuotes(
+      { movie: this.movie, character: this.character },
+      this.page
+    );
+    if (this.movie) {
+      const movies = this.$store.state.movies;
+      const findedMovie = movies.find(movie => this.movie == movie._id);
+      this.selectedMovie = findedMovie.name;
+    }
+    if (this.character) {
+      const characters = this.$store.state.characters;
+      const findedCharacter = characters.find(
+        character => this.character == character._id
+      );
+      this.selectedCharacter = findedCharacter.name;
+    }
+
     // console.log("headers", this.headers);
   },
 
   methods: {
-    async getQuotes(pageNumber) {
+    async getQuotes(filter, pageNumber) {
       try {
         this.loading = true;
         const { docs, total, page, pages, limit } = await TheOneAPI.getQuotes(
+          filter,
           pageNumber
         );
 
-        const movies = this.$store.state.movies;
-        docs.map(quote => {
-          movies.map(movie => {
-            if (quote.movie == movie._id) {
-              quote.movie = movie.name;
-            }
+        if (this.$store.state.movies) {
+          const movies = this.$store.state.movies;
+          docs.map(quote => {
+            movies.map(movie => {
+              if (quote.movie == movie._id) {
+                quote.movie = movie.name;
+              }
+            });
           });
-        });
-
-        const characters = this.$store.state.characters;
-        docs.map(quote => {
-          characters.map(character => {
-            if (quote.character == character._id) {
-              quote.character = character.name;
-            }
+        }
+        if (this.$store.state.characters) {
+          const characters = this.$store.state.characters;
+          docs.map(quote => {
+            characters.map(character => {
+              if (quote.character == character._id) {
+                quote.character = character.name;
+              }
+            });
           });
-        });
+        }
 
         this.quotes = docs;
         this.totalQuotes = total;
@@ -228,7 +252,7 @@ export default {
           this.headers = tableHeaders;
         }
       } catch (error) {
-        console.log(error);
+        console.error(error);
         this.$notification.error("No se han podido recoger datos", {
           title: "Error",
         });
@@ -298,7 +322,7 @@ export default {
           this.headers = tableHeaders;
         }
       } catch (error) {
-        console.log(error);
+        console.error(error);
         this.$notification.error("No se han podido recoger datos", {
           title: "Error",
         });
@@ -307,14 +331,14 @@ export default {
       }
     },
 
-    async getMovies() {
+    async getAllMovies() {
       if (this.$store.state.movies) return;
       try {
         this.loading = true;
-        const { docs } = await TheOneAPI.getMovies();
+        const { docs } = await TheOneAPI.getAllMovies();
         this.$store.commit("setMovies", docs);
       } catch (error) {
-        console.log(error);
+        console.error(error);
         this.$notification.error("No se han podido recoger datos", {
           title: "Error",
         });
@@ -323,14 +347,14 @@ export default {
       }
     },
 
-    async getCharacters() {
+    async getAllCharacters() {
       if (this.$store.state.characters) return;
       try {
         this.loading = true;
         const { docs } = await TheOneAPI.getAllCharacters();
         this.$store.commit("setCharacters", docs);
       } catch (error) {
-        console.log(error);
+        console.error(error);
         this.$notification.error("No se han podido recoger datos", {
           title: "Error",
         });
@@ -386,56 +410,62 @@ export default {
       // console.log(item);
     },
 
-    async filterByMovie(movieName, pageNumber) {
-      try {
-        if (!movieName) return this.getQuotes(this.page);
-        this.loading = true;
-
+    filterByMovieName(movieName) {
+      if (movieName) {
         const movies = this.$store.state.movies;
 
-        const { _id } = movies.find(movie => movie.name == movieName);
+        const findedMovie = movies.find(movie => movieName == movie.name);
 
-        const {
-          docs,
-          total,
-          page,
-          pages,
-          limit,
-        } = await TheOneAPI.getQuotesByMovie(_id, pageNumber);
-
-        docs.map(quote => {
-          movies.map(movie => {
-            if (quote.movie == movie._id) {
-              quote.movie = movie.name;
-            }
-          });
-        });
-
-        const characters = this.$store.state.characters;
-        docs.map(quote => {
-          characters.map(character => {
-            if (quote.character == character._id) {
-              quote.character = character.name;
-            }
-          });
-        });
-
-        this.quotes = docs;
-        this.totalQuotes = total;
-        this.page = page;
-        this.totalPages = pages;
-        this.itemsPerPage = limit;
-      } catch (error) {
-        console.log(error);
-        this.$notification.error("No se han podido recoger datos", {
-          title: "Error",
-        });
-      } finally {
-        this.loading = false;
+        this.$store.commit("setMovie", findedMovie._id);
+      } else {
+        this.$store.commit("setMovie", null);
       }
+      // try {
+      //   if (!movieName) return this.getQuotes({}, 1);
+      //   this.loading = true;
+
+      //   const movies = this.$store.state.movies;
+
+      //   const { _id } = movies.find(movie => movie.name == movieName);
+
+      //   const { docs, total, page, pages, limit } = await TheOneAPI.getQuotes(
+      //     { movie: _id },
+      //     pageNumber
+      //   );
+
+      //   docs.map(quote => {
+      //     movies.map(movie => {
+      //       if (quote.movie == movie._id) {
+      //         quote.movie = movie.name;
+      //       }
+      //     });
+      //   });
+
+      //   const characters = this.$store.state.characters;
+      //   docs.map(quote => {
+      //     characters.map(character => {
+      //       if (quote.character == character._id) {
+      //         quote.character = character.name;
+      //       }
+      //     });
+      //   });
+
+      //   this.quotes = docs;
+      //   this.totalQuotes = total;
+      //   this.page = page;
+      //   this.totalPages = pages;
+      //   this.itemsPerPage = limit;
+      // } catch (error) {
+      //   console.error(error);
+      //   this.$notification.error("No se han podido recoger datos", {
+      //     title: "Error",
+      //   });
+      // } finally {
+      //   this.loading = false;
+      // }
     },
 
-    filterByCharacter(characterName) {
+    filterByCharacterName(characterName) {
       if (characterName) {
         const characters = this.$store.state.characters;
 
@@ -459,7 +489,7 @@ export default {
           console.log("des");
         }
       } else {
-        console.log('NO');
+        console.log("NO");
       }
     },
   },

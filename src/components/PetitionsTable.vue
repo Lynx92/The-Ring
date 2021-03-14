@@ -22,7 +22,7 @@ export default {
   name: "Peticiones",
   data: () => ({
     headers: [
-      { text: "Petition", align: "center", sortable: false, value: "petition" },
+      { text: "Quote", align: "center", sortable: false, value: "petition" },
       { text: "Type", align: "center", value: "type" },
       { text: "Date", align: "center", value: "date" },
     ],

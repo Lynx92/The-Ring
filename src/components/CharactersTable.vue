@@ -23,24 +23,27 @@
                     return-object
                   >
                     <template v-slot:selection="{ item, index }">
-                      <v-chip v-if="index < 6">
+                      <v-chip v-if="index < 5">
                         <span>{{ item.text }}</span>
                       </v-chip>
-                      <span v-if="index === 6" class="grey--text caption">
+                      <span v-if="index === 5" class="grey--text caption">
                         (+{{ selectedHeaders.length - 1 }} others)
                       </span>
                     </template>
                   </v-select></v-row
                 >
                 <v-row>
-                  <v-text-field
+                  <v-autocomplete
                     v-model="searchCharacter"
+                    :items="charactersItems"
                     label="Search Character"
                     append-icon="mdi-magnify"
                     outlined
                     dense
-                    @click:append="getCharactersByName(searchCharacter)"
-                    @keyup.enter="getCharactersByName(searchCharacter)"
+                    small-chips
+                    clearable
+                    @click:append="getCharacters({ name: searchCharacter })"
+                    @change="getCharacters({ name: searchCharacter })"
                   />
                 </v-row>
               </v-col>
@@ -67,6 +70,60 @@
                     dense
                   >
                   </v-slider>
+                </v-row>
+              </v-col>
+              <v-col class="ml-2">
+                <v-row>
+                  <v-select
+                    v-model="raceFilter"
+                    :items="racesItems"
+                    label="Filter By Races"
+                    @change="updateRaceFilter()"
+                    small-chips
+                    dense
+                    multiple
+                    outlined
+                  >
+                    <template v-slot:selection="{ item, index }">
+                      <v-chip v-if="index < 5">
+                        <span>{{ item.text }}</span>
+                      </v-chip>
+                      <span v-if="index === 5" class="grey--text caption">
+                        (+{{ raceFilter.length - 1 }} others)
+                      </span>
+                    </template>
+
+                    <template v-slot:prepend-item>
+                      <v-list-item ripple @click="toggle">
+                        <v-list-item-action>
+                          <v-icon
+                            :color="
+                              raceFilter.length > 0 ? 'indigo darken-4' : ''
+                            "
+                          >
+                            {{ icon }}
+                          </v-icon>
+                        </v-list-item-action>
+                        <v-list-item-content>
+                          <v-list-item-title>
+                            Select All
+                          </v-list-item-title>
+                        </v-list-item-content>
+                      </v-list-item>
+                      <v-divider class="mt-2"></v-divider>
+                    </template>
+                  </v-select>
+                </v-row>
+
+                <v-row>
+                  <v-select
+                    v-model="genderFilter"
+                    :items="genderItems"
+                    label="Filter By Gender"
+                    @change="updateGenderFilter()"
+                    outlined
+                    dense
+                  />
                 </v-row>
               </v-col>
             </v-row>
@@ -112,26 +169,31 @@ export default {
     selectedHeaders: [],
     ColumnWidthSelected: null,
     searchCharacter: "",
+    genderFilter: [],
+    raceFilter: [],
   }),
 
   watch: {
     page: {
-      handler: function(val, oldVal) {
-        if (val != oldVal) this.getCharacters(val);
+      handler: function(val) {
+        this.getCharacters({ race: this.raceFilter?.join(","), gender: this.genderFilter}, val);
       },
     },
   },
 
   async created() {
-    await this.getCharacters(this.page);
+    await this.getCharacters();
     this.selectedHeaders = this.headers;
     this.ColumnWidthSelected = this.headers[0].value;
+    this.raceFilter = this.$store.state.races;
     // console.log("headers", this.headers);
   },
 
   computed: {
     showHeaders() {
-      return this.headers.filter(s => this.selectedHeaders.includes(s));
+      return this.headers.filter(header =>
+        this.selectedHeaders.includes(header)
+      );
     },
 
     ColumnWidthSelectedValue: {
@@ -158,10 +220,63 @@ export default {
         }
       },
     },
+
+    charactersItems() {
+      if (!this.$store.state.characters) return;
+      const characters = this.$store.state.characters;
+      const charactersSelectMenu = [];
+      characters.map(character =>
+        charactersSelectMenu.push({
+          text: character.name,
+          value: character.name,
+        })
+      );
+      return charactersSelectMenu;
+    },
+
+    racesItems() {
+      if (!this.$store.state.races) return;
+      const races = this.$store.state.races;
+      const racesSelectMenu = [];
+      races.map(race =>
+        racesSelectMenu.push({
+          text: race,
+          value: race,
+        })
+      );
+      return racesSelectMenu;
+    },
+
+    genderItems() {
+      if (!this.$store.state.genders) return;
+      const genders = this.$store.state.genders;
+      const racesSelectMenu = [];
+      genders.map(gender =>
+        racesSelectMenu.push({
+          text: gender,
+          value: gender,
+        })
+      );
+      return racesSelectMenu;
+    },
+
+    likesAllFruit() {
+      return this.raceFilter.length === this.racesItems.length;
+    },
+
+    likesSomeFruit() {
+      return this.raceFilter.length > 0 && !this.likesAllFruit;
+    },
+
+    icon() {
+      if (this.likesAllFruit) return "mdi-close-box";
+      if (this.likesSomeFruit) return "mdi-minus-box";
+      return "mdi-checkbox-blank-outline";
+    },
   },
 
   methods: {
-    async getCharacters(pageNumber) {
+    async getCharacters(filters, pageNumber) {
       try {
         this.loading = true;
         const {
@@ -170,18 +285,13 @@ export default {
           page,
           pages,
           limit,
-        } = await TheOneAPI.getCharacters(pageNumber);
+        } = await TheOneAPI.getCharacters(filters, pageNumber);
         this.characters = docs;
         this.totalCharacters = total;
         this.page = page;
         this.totalPages = pages;
         this.itemsPerPage = limit;
 
-        // console.log("characters", docs);
-        // console.log("totalCharacters", total);
-        // console.log("page", page);
-        // console.log("totalPages", pages);
-        // console.log("itemsPerPage", limit);
         if (this.headers.length == 0) {
           const tableHeaders = [];
           Object.getOwnPropertyNames(docs[0]).forEach(header => {
@@ -190,60 +300,13 @@ export default {
                 text: this.capitalize(header),
                 value: header,
                 align: "center",
-                // ...align: ' d-none' }, // ' d-none' hides the column but keeps the search ability
                 width: "auto",
               });
           });
           this.headers = tableHeaders;
         }
       } catch (error) {
-        console.log(error);
-        this.$notification.error("No se han podido recoger datos", {
-          title: "Error",
-        });
-      } finally {
-        this.loading = false;
-      }
-    },
-
-    async getCharactersByName(charactersName) {
-      if (!charactersName) return;
-      try {
-        this.loading = true;
-        const {
-          docs,
-          total,
-          page,
-          pages,
-          limit,
-        } = await TheOneAPI.getCharactersByName(charactersName);
-        this.characters = docs;
-        this.totalCharacters = total;
-        this.page = page;
-        this.totalPages = pages;
-        this.itemsPerPage = limit;
-
-        // console.log("characters", docs);
-        // console.log("totalCharacters", total);
-        // console.log("page", page);
-        // console.log("totalPages", pages);
-        // console.log("itemsPerPage", limit);
-        if (this.headers.length == 0) {
-          const tableHeaders = [];
-          Object.getOwnPropertyNames(docs[0]).forEach(header => {
-            if (header != "__ob__" && header != "_id")
-              tableHeaders.push({
-                text: this.capitalize(header),
-                value: header,
-                align: "center",
-                // ...align: ' d-none' }, // ' d-none' hides the column but keeps the search ability
-                width: "auto",
-              });
-          });
-          this.headers = tableHeaders;
-        }
-      } catch (error) {
-        console.log(error);
+        console.error(error);
         this.$notification.error("No se han podido recoger datos", {
           title: "Error",
         });
@@ -268,9 +331,34 @@ export default {
     capitalize(word) {
       return word[0].toUpperCase() + word.slice(1);
     },
+
+    updateRaceFilter() {
+      // console.log(this.raceFilter.join(","));
+      const races = this.raceFilter.join(",");
+      this.getCharacters({ race: races, gender: this.genderFilter });
+    },
+
+    updateGenderFilter() {
+      // console.log(this.raceFilter.join(","));
+      const gender = this.genderFilter;
+      const races = this.raceFilter.join(",");
+      this.getCharacters({ gender: gender, race: races });
+    },
+
+    toggle() {
+      this.$nextTick(() => {
+        if (this.likesAllFruit) {
+          this.raceFilter = ["undefined"];
+        } else {
+          this.raceFilter = this.racesItems.map(item => item.value);
+        }
+        this.updateRaceFilter();
+      });
+    },
   },
 };
 </script>
+
 <style>
 #app
   > div
