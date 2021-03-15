@@ -186,7 +186,7 @@ export default {
     this.selectedHeaders = this.headers;
     this.ColumnWidthSelected = this.headers[0].value;
     this.raceFilter = this.$store.state.races;
-    // console.log("headers", this.headers);
+    ("headers", this.headers);
   },
 
   computed: {
@@ -323,7 +323,7 @@ export default {
     },
 
     updateWidthSlider(column) {
-      // console.log("column", column);
+      ("column", column);
       const columnItem = this.headers.find(header => header.value == column);
       this.ColumnWidthSelectedValue = columnItem.width;
     },
@@ -333,13 +333,13 @@ export default {
     },
 
     updateRaceFilter() {
-      // console.log(this.raceFilter.join(","));
+      (this.raceFilter.join(","));
       const races = this.raceFilter.join(",");
       this.getCharacters({ race: races, gender: this.genderFilter });
     },
 
     updateGenderFilter() {
-      // console.log(this.raceFilter.join(","));
+      (this.raceFilter.join(","));
       const gender = this.genderFilter;
       const races = this.raceFilter.join(",");
       this.getCharacters({ gender: gender, race: races });

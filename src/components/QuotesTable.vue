@@ -142,7 +142,7 @@ export default {
         const findedCharacter = characters.find(
           character => val == character._id
         );
-        // console.log(findedCharacter.name);
+        (findedCharacter.name);
 
         this.selectedCharacter = findedCharacter.name;
       },
@@ -177,7 +177,7 @@ export default {
       this.selectedCharacter = findedCharacter.name;
     }
 
-    // console.log("headers", this.headers);
+    ("headers", this.headers);
   },
 
   methods: {
@@ -216,11 +216,11 @@ export default {
         this.totalPages = pages;
         this.itemsPerPage = limit;
 
-        // console.log("quotes", docs);
-        // console.log("totalQuotes", total);
-        // console.log("page", page);
-        // console.log("totalPages", pages);
-        // console.log("itemsPerPage", limit);
+        ("quotes", docs);
+        ("totalQuotes", total);
+        ("page", page);
+        ("totalPages", pages);
+        ("itemsPerPage", limit);
         if (this.headers.length == 0) {
           const tableHeaders = [];
           Object.getOwnPropertyNames(docs[0]).forEach(header => {
@@ -296,11 +296,11 @@ export default {
         this.totalPages = pages;
         this.itemsPerPage = limit;
 
-        // console.log("quotesXX", docs);
-        // console.log("totalQuotesXX", total);
-        // console.log("pageXX", page);
-        // console.log("totalPagesXX", pages);
-        // console.log("itemsPerPageXX", limit);
+        ("quotesXX", docs);
+        ("totalQuotesXX", total);
+        ("pageXX", page);
+        ("totalPagesXX", pages);
+        ("itemsPerPageXX", limit);
         if (this.headers.length == 0) {
           const tableHeaders = [];
           Object.getOwnPropertyNames(docs[0]).forEach(header => {
@@ -407,7 +407,7 @@ export default {
       this.$notification.success(item, {
         title: "Edición Añadida",
       });
-      // console.log(item);
+      (item);
     },
 
     filterByMovieName(movieName) {
